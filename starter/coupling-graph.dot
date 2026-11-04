@@ -1,0 +1,8 @@
+graph CouplingGraph {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor="#f8f9fa", fontname="Helvetica"];
+  edge [fontname="Helvetica", fontsize=10];
+
+  "demo.A" -- "demo.B" [label="0.6667", penwidth=4.33];
+  "demo.B" -- "demo.C" [label="0.3333", penwidth=2.67];
+}
