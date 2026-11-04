@@ -1,0 +1,14 @@
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/app/LibraryApp.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/model/Book.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/model/Category.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/model/Dvd.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/model/Item.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/model/Loanable.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/model/Member.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/service/Catalog.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/service/ConsoleNotifier.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/service/LoanException.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/service/LoanService.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/service/Notifier.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/util/Statistics.java
+/home/etudiant/Bureau/Evolution/TP1_Structuration/validation/src/library/util/TextUtils.java

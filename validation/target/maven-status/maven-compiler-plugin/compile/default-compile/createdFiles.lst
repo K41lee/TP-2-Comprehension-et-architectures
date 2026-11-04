@@ -1,0 +1,15 @@
+library/service/LoanException.class
+library/util/Statistics.class
+library/service/ConsoleNotifier.class
+library/service/Catalog.class
+library/service/Notifier.class
+library/model/Item.class
+library/model/Book.class
+library/model/Member.class
+library/model/Category.class
+library/app/LibraryApp.class
+library/model/Dvd.class
+library/util/TextUtils.class
+library/model/Loanable.class
+library/service/LoanService$Loan.class
+library/service/LoanService.class
