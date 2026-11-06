@@ -1,9 +1,14 @@
 package hai913i.tp2.metrics;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import hai913i.tp2.model.CallArcFact;
 import hai913i.tp2.model.ClassFact;
@@ -26,11 +31,11 @@ public class CouplingMatrix {
 
         @Override
         public int compareTo(CouplingEntry o) {
-            int cmp = Double.compare(o.score, this.score); // Ordre décroissant
+            int cmp = Double.compare(o.score, this.score);
             if (cmp != 0) {
                 return cmp;
             }
-            return this.pair.compareTo(o.pair); // Départage déterministe
+            return this.pair.compareTo(o.pair);
         }
 
         @Override
@@ -82,6 +87,10 @@ public class CouplingMatrix {
         }
     }
 
+    public FactDataset getDataset() {
+        return dataset;
+    }
+
     public int getTotalInterClassArcs() {
         return totalInterClassArcs;
     }
@@ -105,15 +114,11 @@ public class CouplingMatrix {
         return list;
     }
 
-    /**
-     * Affiche la matrice de couplage complète (N x N) alignée sur la console.
-     */
     public void printFormattedMatrix() {
         List<ClassFact> classes = new ArrayList<>(dataset.getClasses());
         Collections.sort(classes);
         int n = classes.size();
 
-        // Noms simples pour un affichage lisible
         List<String> simpleNames = new ArrayList<>();
         for (ClassFact c : classes) {
             String qName = c.qualifiedName();
@@ -123,7 +128,6 @@ public class CouplingMatrix {
 
         System.out.println("\n=== MATRICE DE COUPLAGE COMPLÈTE (A2) ===");
 
-        // Entête des colonnes
         System.out.printf("%-18s", "");
         for (String name : simpleNames) {
             String header = name.length() > 9 ? name.substring(0, 9) : name;
@@ -131,7 +135,6 @@ public class CouplingMatrix {
         }
         System.out.println();
 
-        // Lignes de la matrice
         for (int i = 0; i < n; i++) {
             ClassFact c1 = classes.get(i);
             String rowName = simpleNames.get(i);
@@ -151,38 +154,30 @@ public class CouplingMatrix {
         }
     }
 
-    /**
-     * Exporte la matrice de couplage complète au format CSV.
-     */
-    public void exportToCsv(java.nio.file.Path outputPath) throws java.io.IOException {
+    public void exportToCsv(Path outputPath) throws IOException {
         List<ClassFact> classes = new ArrayList<>(dataset.getClasses());
         Collections.sort(classes);
 
-        try (java.io.PrintWriter writer = new java.io.PrintWriter(java.nio.file.Files.newBufferedWriter(outputPath))) {
-            // En-tête des colonnes
+        try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(outputPath))) {
             writer.print("class");
             for (ClassFact c : classes) {
                 writer.print(";" + c.qualifiedName());
             }
             writer.println();
 
-            // Lignes
             for (ClassFact c1 : classes) {
                 writer.print(c1.qualifiedName());
                 for (ClassFact c2 : classes) {
                     double score = getCoupling(c1, c2);
-                    writer.printf(java.util.Locale.US, ";%.4f", score);
+                    writer.printf(Locale.US, ";%.4f", score);
                 }
                 writer.println();
             }
         }
     }
 
-    /**
-     * Exporte le graphe de couplage pondéré au format Graphviz DOT.
-     */
-    public void exportToDot(java.nio.file.Path outputPath) throws java.io.IOException {
-        try (java.io.PrintWriter writer = new java.io.PrintWriter(java.nio.file.Files.newBufferedWriter(outputPath))) {
+    public void exportToDot(Path outputPath) throws IOException {
+        try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(outputPath))) {
             writer.println("graph CouplingGraph {");
             writer.println("  rankdir=LR;");
             writer.println("  node [shape=box, style=\"rounded,filled\", fillcolor=\"#f8f9fa\", fontname=\"Helvetica\"];");
@@ -196,7 +191,7 @@ public class CouplingMatrix {
                 String name1 = pair.getFirst().qualifiedName();
                 String name2 = pair.getSecond().qualifiedName();
 
-                writer.printf(java.util.Locale.US,
+                writer.printf(Locale.US,
                         "  \"%s\" -- \"%s\" [label=\"%.4f\", penwidth=%.2f];%n",
                         name1, name2, score, 1.0 + (score * 5.0));
             }

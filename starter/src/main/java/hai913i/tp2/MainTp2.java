@@ -2,7 +2,9 @@ package hai913i.tp2;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import hai913i.tp1.model.TypeInfo;
 import hai913i.tp1.parse.JdtParser;
@@ -10,11 +12,14 @@ import hai913i.tp1.parse.JdtParser.ParsedFile;
 import hai913i.tp1.parse.ProjectSources;
 import hai913i.tp1.visitor.CallExtractorVisitor;
 import hai913i.tp1.visitor.StructureExtractorVisitor;
+import hai913i.tp2.clustering.Cluster;
+import hai913i.tp2.clustering.HierarchicalClustering;
 import hai913i.tp2.input.CanonicalCsvFactLoader;
 import hai913i.tp2.input.FactLoader;
 import hai913i.tp2.input.JsonFactLoader;
 import hai913i.tp2.input.Tp1ModelFactLoader;
 import hai913i.tp2.metrics.CouplingMatrix;
+import hai913i.tp2.model.ClassFact;
 import hai913i.tp2.model.FactDataset;
 
 public class MainTp2 {
@@ -86,6 +91,32 @@ public class MainTp2 {
                 System.out.println("  - DOT : " + dotOut.toAbsolutePath());
             } catch (Exception e) {
                 System.err.println("Erreur lors des exports A2 : " + e.getMessage());
+            }
+
+            System.out.println("\n=== POINT DE CONTRÔLE B1 (TP2) ===");
+            HierarchicalClustering clustering = new HierarchicalClustering(couplingMatrix);
+            Cluster dendrogramRoot = clustering.buildDendrogram();
+
+            System.out.println("\n=== POINT DE CONTRÔLE B2 (TP2) ===");
+            try {
+                java.nio.file.Path nwkOut = java.nio.file.Paths.get("dendrogram.nwk");
+                java.nio.file.Path dotDendroOut = java.nio.file.Paths.get("dendrogram.dot");
+
+                dendrogramRoot.exportToNewick(nwkOut);
+                dendrogramRoot.exportToDot(dotDendroOut);
+
+                System.out.println("\n=== EXPORTS DENDROGRAMME (B2) ===");
+                System.out.println("  - Newick : " + nwkOut.toAbsolutePath());
+                System.out.println("  - DOT    : " + dotDendroOut.toAbsolutePath());
+                System.out.println("Chaîne Newick : " + dendrogramRoot.toNewick() + ";");
+            } catch (Exception e) {
+                System.err.println("Erreur d'export B2 : " + e.getMessage());
+            }
+
+            System.out.println("\n=== POINT DE CONTRÔLE B3 (TP2) ===");
+            double[] controlThresholds = {0.015, 0.025, 0.045};
+            for (double cp : controlThresholds) {
+                clustering.evaluatePartition(dendrogramRoot, cp);
             }
 
         } catch (Exception e) {
