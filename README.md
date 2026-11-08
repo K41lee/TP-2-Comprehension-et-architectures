@@ -15,7 +15,7 @@ Le projet est structuré en sous-packages modulaires sous `src/main/java/hai913i
 * `input` : Couche d'abstraction d'entrée via l'interface `FactLoader` (`Tp1ModelFactLoader`, `CanonicalCsvFactLoader`, `JsonFactLoader`).
 * `metrics` : Moteur de calcul de couplage inter-classes et d'export de matrice (`CouplingMatrix`).
 * `clustering` : Moteur de Clustering Hiérarchique Ascendant et d'extraction des partitions (`HierarchicalClustering`, `Cluster`, `LinkageType`).
-* `view` : Affichage épuré des journaux et des points de contrôle sur la console (`ConsoleDisplay`).
+* `display` : Affichage épuré des journaux et des points de contrôle sur la console (`ConsoleDisplay`).
 * `gui` : Interface graphique interactive Swing d'exploration et d'inspection (`InteractiveClusteringViewer`).
 
 ### Chemin d'entrée retenu (§ 4)
