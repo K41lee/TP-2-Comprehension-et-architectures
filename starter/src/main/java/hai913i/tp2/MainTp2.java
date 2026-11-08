@@ -2,9 +2,8 @@ package hai913i.tp2;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.nio.file.Paths;
 import java.util.List;
-import java.util.Locale;
 
 import hai913i.tp1.model.TypeInfo;
 import hai913i.tp1.parse.JdtParser;
@@ -14,19 +13,21 @@ import hai913i.tp1.visitor.CallExtractorVisitor;
 import hai913i.tp1.visitor.StructureExtractorVisitor;
 import hai913i.tp2.clustering.Cluster;
 import hai913i.tp2.clustering.HierarchicalClustering;
+import hai913i.tp2.clustering.LinkageType;
+import hai913i.tp2.gui.InteractiveClusteringViewer;
 import hai913i.tp2.input.CanonicalCsvFactLoader;
 import hai913i.tp2.input.FactLoader;
 import hai913i.tp2.input.JsonFactLoader;
 import hai913i.tp2.input.Tp1ModelFactLoader;
 import hai913i.tp2.metrics.CouplingMatrix;
-import hai913i.tp2.model.ClassFact;
 import hai913i.tp2.model.FactDataset;
+import hai913i.tp2.display.ConsoleDisplay;
 
 public class MainTp2 {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("Usage : java -cp ... hai913i.tp2.MainTp2 <CHEMIN_ENTREE>");
+            System.err.println("Usage : java -cp ... hai913i.tp2.MainTp2 <CHEMIN_ENTREE> [single] [c2] [gui]");
             System.exit(1);
         }
 
@@ -36,95 +37,79 @@ public class MainTp2 {
             System.exit(1);
         }
 
+        // Options CLI (C1: single, C2: c2, C3: gui)
+        LinkageType requestedLinkage = LinkageType.AVERAGE;
+        boolean includeInheritance = false;
+        boolean launchGui = false;
+
+        for (String arg : args) {
+            if (arg.equalsIgnoreCase("single") || arg.equalsIgnoreCase("--single")) requestedLinkage = LinkageType.SINGLE;
+            if (arg.equalsIgnoreCase("c2") || arg.equalsIgnoreCase("--c2")) includeInheritance = true;
+            if (arg.equalsIgnoreCase("gui") || arg.equalsIgnoreCase("--gui")) launchGui = true;
+        }
+
         try {
-            FactDataset dataset;
+            // 1. Chargement des faits
+            FactDataset dataset = loadDataset(inputPath);
+            ConsoleDisplay.displayCheckpointA0(inputPath, dataset, includeInheritance);
 
-            // 1. Si l'argument pointe vers un fichier JSON
-            if (Files.isRegularFile(inputPath) && inputPath.toString().endsWith(".json")) {
-                FactLoader loader = new JsonFactLoader();
-                dataset = loader.loadFacts(inputPath);
-            }
-            // 2. Si c'est un dossier contenant du code source Java (Analyseur TP1)
-            else if (containsJavaFiles(inputPath)) {
-                ProjectSources sources = ProjectSources.of(inputPath);
-                List<ParsedFile> files = JdtParser.parse(sources, List.of());
-                List<TypeInfo> tp1Model = buildTp1Model(files);
-                dataset = Tp1ModelFactLoader.fromTp1Model(tp1Model);
-            }
-            // 3. Sinon, on tente le chargement d'un dossier CSV canonique
-            else {
-                FactLoader loader = new CanonicalCsvFactLoader();
-                dataset = loader.loadFacts(inputPath);
-            }
+            // 2. Calcul du couplage (A1)
+            CouplingMatrix couplingMatrix = new CouplingMatrix(dataset, includeInheritance);
+            ConsoleDisplay.displayCheckpointA1(couplingMatrix);
 
-            System.out.println("=== POINT DE CONTRÔLE A0 (TP2) ===");
-            System.out.println("Chemin des faits  : " + inputPath.toAbsolutePath());
-            System.out.println("Classes           : " + dataset.getClassCount());
-            System.out.println("Méthodes          : " + dataset.getMethodCount());
-            System.out.println("Arcs du graphe    : " + dataset.getArcCount());
+            // 3. Exports du graphe (A2)
+            Path csvOut = Paths.get("coupling-matrix.csv");
+            Path dotOut = Paths.get("coupling-graph.dot");
+            couplingMatrix.exportToCsv(csvOut);
+            couplingMatrix.exportToDot(dotOut);
+            ConsoleDisplay.displayCheckpointA2(couplingMatrix, csvOut, dotOut);
 
-            CouplingMatrix couplingMatrix = new CouplingMatrix(dataset);
-
-            System.out.println("\n=== POINT DE CONTRÔLE A1 (TP2) ===");
-            System.out.println("Arcs inter-classes (E_inter) : " + couplingMatrix.getTotalInterClassArcs());
-            System.out.println("Nombre de paires couplées   : " + couplingMatrix.getCouplingScores().size());
-            System.out.println("\nCouplages inter-classes triés :");
-            for (CouplingMatrix.CouplingEntry entry : couplingMatrix.getSortedCouplingList()) {
-                System.out.printf("  %-30s : %d / %d = %.4f%n",
-                        entry.getPair(),
-                        (int) Math.round(entry.getScore() * couplingMatrix.getTotalInterClassArcs()),
-                        couplingMatrix.getTotalInterClassArcs(),
-                        entry.getScore());
-            }
-
-            System.out.println("\n=== POINT DE CONTRÔLE A2 (TP2) ===");
-            couplingMatrix.printFormattedMatrix();
-            try {
-                java.nio.file.Path csvOut = java.nio.file.Paths.get("coupling-matrix.csv");
-                java.nio.file.Path dotOut = java.nio.file.Paths.get("coupling-graph.dot");
-
-                couplingMatrix.exportToCsv(csvOut);
-                couplingMatrix.exportToDot(dotOut);
-
-                System.out.println("\nExports A2 générés avec succès :");
-                System.out.println("  - CSV : " + csvOut.toAbsolutePath());
-                System.out.println("  - DOT : " + dotOut.toAbsolutePath());
-            } catch (Exception e) {
-                System.err.println("Erreur lors des exports A2 : " + e.getMessage());
-            }
-
-            System.out.println("\n=== POINT DE CONTRÔLE B1 (TP2) ===");
-            HierarchicalClustering clustering = new HierarchicalClustering(couplingMatrix);
+            // 4. Clustering (B1)
+            System.out.printf("%n=== POINT DE CONTRÔLE B1 (TP2 - Mode: %s) ===%n", requestedLinkage);
+            HierarchicalClustering clustering = new HierarchicalClustering(couplingMatrix, requestedLinkage);
             Cluster dendrogramRoot = clustering.buildDendrogram();
 
-            System.out.println("\n=== POINT DE CONTRÔLE B2 (TP2) ===");
-            try {
-                java.nio.file.Path nwkOut = java.nio.file.Paths.get("dendrogram.nwk");
-                java.nio.file.Path dotDendroOut = java.nio.file.Paths.get("dendrogram.dot");
+            // 5. Exports du Dendrogramme (B2)
+            String prefix = (requestedLinkage == LinkageType.SINGLE) ? "dendrogram-single" : "dendrogram";
+            Path nwkOut = Paths.get(prefix + ".nwk");
+            Path dotDendroOut = Paths.get(prefix + ".dot");
+            dendrogramRoot.exportToNewick(nwkOut);
+            dendrogramRoot.exportToDot(dotDendroOut);
+            ConsoleDisplay.displayCheckpointB2(requestedLinkage, nwkOut, dotDendroOut, dendrogramRoot.toNewick());
 
-                dendrogramRoot.exportToNewick(nwkOut);
-                dendrogramRoot.exportToDot(dotDendroOut);
-
-                System.out.println("\n=== EXPORTS DENDROGRAMME (B2) ===");
-                System.out.println("  - Newick : " + nwkOut.toAbsolutePath());
-                System.out.println("  - DOT    : " + dotDendroOut.toAbsolutePath());
-                System.out.println("Chaîne Newick : " + dendrogramRoot.toNewick() + ";");
-            } catch (Exception e) {
-                System.err.println("Erreur d'export B2 : " + e.getMessage());
-            }
-
+            // 6. Évaluation des Partitions (B3)
             System.out.println("\n=== POINT DE CONTRÔLE B3 (TP2) ===");
             double[] controlThresholds = {0.015, 0.025, 0.045};
             for (double cp : controlThresholds) {
-                clustering.evaluatePartition(dendrogramRoot, cp);
+                ConsoleDisplay.displayPartitionEvaluation(clustering, dendrogramRoot, cp);
+            }
+
+            // 7. Lancement GUI optionnelle (C3)
+            if (launchGui) {
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    var viewer = new InteractiveClusteringViewer(couplingMatrix, dendrogramRoot);
+                    viewer.setVisible(true);
+                });
             }
 
         } catch (Exception e) {
-            System.err.println("Erreur lors du chargement des faits : " + e.getMessage());
+            System.err.println("Erreur lors de l'exécution du TP2 : " + e.getMessage());
             e.printStackTrace();
             System.exit(1);
         }
+    }
 
+    private static FactDataset loadDataset(Path inputPath) throws Exception {
+        if (Files.isRegularFile(inputPath) && inputPath.toString().endsWith(".json")) {
+            return new JsonFactLoader().loadFacts(inputPath);
+        } else if (containsJavaFiles(inputPath)) {
+            ProjectSources sources = ProjectSources.of(inputPath);
+            List<ParsedFile> files = JdtParser.parse(sources, List.of());
+            List<TypeInfo> tp1Model = buildTp1Model(files);
+            return Tp1ModelFactLoader.fromTp1Model(tp1Model);
+        } else {
+            return new CanonicalCsvFactLoader().loadFacts(inputPath);
+        }
     }
 
     private static boolean containsJavaFiles(Path dir) throws Exception {
@@ -140,7 +125,6 @@ public class MainTp2 {
             structureVisitor.setCurrentUnit(file.unit());
             file.unit().accept(structureVisitor);
         }
-
         List<TypeInfo> model = structureVisitor.extractedTypes;
 
         for (ParsedFile file : files) {

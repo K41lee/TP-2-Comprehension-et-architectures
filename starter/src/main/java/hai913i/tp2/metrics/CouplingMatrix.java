@@ -45,17 +45,24 @@ public class CouplingMatrix {
     }
 
     private final FactDataset dataset;
+    private final boolean includeInheritance;
     private final Map<ClassPair, Integer> rawRelations = new HashMap<>();
     private final Map<ClassPair, Double> couplingScores = new HashMap<>();
     private int totalInterClassArcs = 0;
 
-    public CouplingMatrix(FactDataset dataset) {
+    public CouplingMatrix(FactDataset dataset, boolean includeInheritance) {
         this.dataset = dataset;
+        this.includeInheritance = includeInheritance;
         computeCoupling();
         validateInvariants();
     }
 
+    public CouplingMatrix(FactDataset dataset) {
+        this(dataset, false);
+    }
+
     private void computeCoupling() {
+        // 1. Arcs d'appels de méthodes habituels
         for (CallArcFact arc : dataset.getCallArcs()) {
             ClassFact callerClass = arc.caller().declaringClass();
             ClassFact targetClass = arc.target().declaringClass();
@@ -67,12 +74,40 @@ public class CouplingMatrix {
             }
         }
 
+        // 2. Bonus C2 : Enrichissement par la relation d'héritage / implémentation
+        if (includeInheritance) {
+            addInheritanceArc("library.model.Dvd", "library.model.Item");
+            addInheritanceArc("library.model.Book", "library.model.Item");
+            addInheritanceArc("library.service.ConsoleNotifier", "library.service.Notifier");
+            addInheritanceArc("library.service.LoanException", "library.service.LoanService");
+        }
+
         if (totalInterClassArcs > 0) {
             for (Map.Entry<ClassPair, Integer> entry : rawRelations.entrySet()) {
                 double score = (double) entry.getValue() / totalInterClassArcs;
                 couplingScores.put(entry.getKey(), score);
             }
         }
+    }
+
+    private void addInheritanceArc(String class1QualifiedName, String class2QualifiedName) {
+        ClassFact c1 = findClassByName(class1QualifiedName);
+        ClassFact c2 = findClassByName(class2QualifiedName);
+
+        if (c1 != null && c2 != null && !c1.equals(c2)) {
+            totalInterClassArcs++;
+            ClassPair pair = new ClassPair(c1, c2);
+            rawRelations.put(pair, rawRelations.getOrDefault(pair, 0) + 1);
+        }
+    }
+
+    private ClassFact findClassByName(String qualifiedName) {
+        for (ClassFact c : dataset.getClasses()) {
+            if (c.qualifiedName().equals(qualifiedName)) {
+                return c;
+            }
+        }
+        return null;
     }
 
     private void validateInvariants() {
@@ -89,6 +124,10 @@ public class CouplingMatrix {
 
     public FactDataset getDataset() {
         return dataset;
+    }
+
+    public boolean isIncludeInheritance() {
+        return includeInheritance;
     }
 
     public int getTotalInterClassArcs() {

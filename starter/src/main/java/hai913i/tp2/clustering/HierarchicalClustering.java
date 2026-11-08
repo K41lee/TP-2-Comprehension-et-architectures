@@ -7,16 +7,40 @@ import java.util.*;
 public class HierarchicalClustering {
 
     private final CouplingMatrix couplingMatrix;
+    private final LinkageType linkageType;
 
-    public HierarchicalClustering(CouplingMatrix couplingMatrix) {
+    public HierarchicalClustering(CouplingMatrix couplingMatrix, LinkageType linkageType) {
         this.couplingMatrix = couplingMatrix;
+        this.linkageType = linkageType;
     }
 
     /**
-     * Calcule le couplage moyen inter-clusters entre K1 et K2 (B1) :
-     * Sum(C(c1, c2)) / (|K1| * |K2|)
+     * Constructeur par défaut : utilise le Lien Moyen (Average Linkage).
+     */
+    public HierarchicalClustering(CouplingMatrix couplingMatrix) {
+        this(couplingMatrix, LinkageType.AVERAGE);
+    }
+
+    public LinkageType getLinkageType() {
+        return linkageType;
+    }
+
+    /**
+     * Calcule le couplage inter-clusters selon le type de linkage configuré.
      */
     public double computeClusterCoupling(Cluster k1, Cluster k2) {
+        if (linkageType == LinkageType.SINGLE) {
+            return computeSingleLinkage(k1, k2);
+        } else {
+            return computeAverageLinkage(k1, k2);
+        }
+    }
+
+    /**
+     * Lien Moyen (Average Linkage - Étape B1) :
+     * Sum(C(c1, c2)) / (|K1| * |K2|)
+     */
+    private double computeAverageLinkage(Cluster k1, Cluster k2) {
         double sum = 0.0;
         for (ClassFact c1 : k1.getClasses()) {
             for (ClassFact c2 : k2.getClasses()) {
@@ -29,7 +53,24 @@ public class HierarchicalClustering {
     }
 
     /**
-     * Calcule le couplage interne moyen C(G) au sein d'un module G (B3) :
+     * Lien Simple (Single Linkage - Bonus C1) :
+     * Max(C(c1, c2)) sur l'ensemble des paires (c1, c2).
+     */
+    private double computeSingleLinkage(Cluster k1, Cluster k2) {
+        double max = 0.0;
+        for (ClassFact c1 : k1.getClasses()) {
+            for (ClassFact c2 : k2.getClasses()) {
+                double c = couplingMatrix.getCoupling(c1, c2);
+                if (c > max) {
+                    max = c;
+                }
+            }
+        }
+        return max;
+    }
+
+    /**
+     * Calcule le couplage interne moyen C(G) au sein d'un module G (Étape B3) :
      * C(G) = Somme(C(ci, cj)) / ( |G| * (|G| - 1) / 2 )
      */
     public double computeInternalCoupling(Cluster g) {
@@ -48,7 +89,7 @@ public class HierarchicalClustering {
     }
 
     /**
-     * Exécute le Clustering Hiérarchique Ascendant (CHA) selon les règles exactes imposées.
+     * Exécute le Clustering Hiérarchique Ascendant (CHA) selon les règles imposées.
      */
     public Cluster buildDendrogram() {
         List<ClassFact> sortedClasses = new ArrayList<>(couplingMatrix.getDataset().getClasses());
@@ -64,7 +105,7 @@ public class HierarchicalClustering {
 
         int nextClusterId = m; // Prochain identifiant de groupe (M, M+1, ...)
 
-        System.out.println("\n=== DÉBUT DU CLUSTERING HIÉRARCHIQUE (B0/B1) ===");
+        System.out.printf(Locale.US, "%n=== DÉBUT DU CLUSTERING HIÉRARCHIQUE (%s LINKAGE) ===%n", linkageType);
         System.out.println("Groupes initiaux (Feuilles) : " + activeClusters.size());
 
         // 2. Boucle de fusion jusqu'à obtenir 1 seul cluster racine
@@ -132,8 +173,6 @@ public class HierarchicalClustering {
 
     /**
      * Extrait une partition du dendrogramme selon un seuil de couplage interne CP (Étape B3).
-     * Si C(G) >= CP, le groupe forme un module.
-     * Sinon, on descend dans ses deux fils.
      */
     public List<Cluster> extractPartitionByThreshold(Cluster node, double cp) {
         List<Cluster> partition = new ArrayList<>();
@@ -153,7 +192,6 @@ public class HierarchicalClustering {
 
     /**
      * Évalue et affiche une partition selon le seuil CP (Étape B3).
-     * Vérifie la contrainte M/2 et indique la validité de la coupe.
      */
     public void evaluatePartition(Cluster root, double cp) {
         List<Cluster> partition = extractPartitionByThreshold(root, cp);
@@ -161,12 +199,12 @@ public class HierarchicalClustering {
         int maxAllowedModules = totalClasses / 2; // Contrainte M/2 (ex: 15 / 2 = 7)
         boolean isViolated = partition.size() > maxAllowedModules;
 
-        System.out.printf(Locale.US, "%n--- Etape B3 : Coupe pour CP = %.3f ---%n", cp);
-        System.out.printf("Nombre de modules obtenus : %d | Limite autorisee (M/2 = %d/2) : %d%n",
+        System.out.printf(Locale.US, "%n--- Étape B3 (%s) : Coupe pour CP = %.3f ---%n", linkageType, cp);
+        System.out.printf("Nombre de modules obtenus : %d | Limite autorisée (M/2 = %d/2) : %d%n",
                 partition.size(), totalClasses, maxAllowedModules);
 
         if (isViolated) {
-            System.out.printf(Locale.US, "CONTRAINTE M/2 VIOLÉE (%d > %d) : la coupe doit etre rejetee !%n",
+            System.out.printf(Locale.US, "CONTRAINTE M/2 VIOLÉE (%d > %d) : la coupe doit être rejetée !%n",
                     partition.size(), maxAllowedModules);
         } else {
             System.out.printf(Locale.US, "CONTRAINTE M/2 RESPECTÉE (%d <= %d).%n",
